@@ -235,6 +235,116 @@ function renderMilkyWay() {
   ctx.restore();
 }
 
+// ─── Realistic Moon (Canvas) ───
+function renderMoon() {
+  const canvas = $("moonCanvas");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  const s = 140; // canvas size
+  const r = 60;  // moon radius
+  const cx = 70, cy = 70;
+
+  ctx.clearRect(0, 0, s, s);
+
+  // Outer glow layers
+  [[50, 0.03], [35, 0.05], [22, 0.08], [12, 0.12]].forEach(([spread, alpha]) => {
+    const g = ctx.createRadialGradient(cx, cy, r, cx, cy, r + spread);
+    g.addColorStop(0, `rgba(254, 243, 199, ${alpha})`);
+    g.addColorStop(1, "transparent");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r + spread, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // Moon base — bright side gradient
+  const moonGrad = ctx.createRadialGradient(cx - 10, cy - 10, 5, cx, cy, r);
+  moonGrad.addColorStop(0, "#fefce8");
+  moonGrad.addColorStop(0.3, "#fde68a");
+  moonGrad.addColorStop(0.6, "#d9c56a");
+  moonGrad.addColorStop(1, "#b5a050");
+  ctx.fillStyle = moonGrad;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Dark side (crescent shadow)
+  ctx.fillStyle = "#050520";
+  ctx.beginPath();
+  ctx.arc(cx + 18, cy, r, 0, Math.PI * 2);
+  ctx.fill();
+  // Re-draw lit crescent
+  ctx.fillStyle = moonGrad;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fill();
+  // Clip dark side
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.clip();
+  ctx.fillStyle = "#050520";
+  ctx.beginPath();
+  ctx.arc(cx + 22, cy - 2, r + 2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // Maria (dark patches — lunar seas)
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.clip();
+  const maria = [
+    { x: cx - 18, y: cy - 12, rx: 14, ry: 10, a: 0.06 },
+    { x: cx - 8, y: cy + 8, rx: 10, ry: 8, a: 0.05 },
+    { x: cx - 25, y: cy + 2, rx: 8, ry: 12, a: 0.04 },
+    { x: cx - 15, y: cy - 25, rx: 7, ry: 5, a: 0.04 },
+    { x: cx - 5, y: cy + 20, rx: 9, ry: 6, a: 0.05 },
+  ];
+  maria.forEach(m => {
+    ctx.fillStyle = `rgba(80, 70, 40, ${m.a})`;
+    ctx.beginPath();
+    ctx.ellipse(m.x, m.y, m.rx, m.ry, 0.2, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // Craters
+  const craters = [
+    { x: cx - 20, y: cy - 18, r: 5 },
+    { x: cx - 30, y: cy + 5, r: 4 },
+    { x: cx - 10, y: cy + 15, r: 6 },
+    { x: cx - 5, y: cy - 8, r: 3 },
+    { x: cx - 22, y: cy + 18, r: 3.5 },
+    { x: cx - 35, y: cy - 5, r: 2.5 },
+    { x: cx - 15, y: cy + 28, r: 2 },
+  ];
+  craters.forEach(c => {
+    // Shadow inside crater
+    const cg = ctx.createRadialGradient(c.x - 1, c.y - 1, 0, c.x, c.y, c.r);
+    cg.addColorStop(0, "rgba(0, 0, 0, 0.1)");
+    cg.addColorStop(0.7, "rgba(0, 0, 0, 0.05)");
+    cg.addColorStop(1, "transparent");
+    ctx.fillStyle = cg;
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2);
+    ctx.fill();
+    // Bright rim on top edge
+    ctx.strokeStyle = "rgba(255, 255, 240, 0.06)";
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, c.r, -Math.PI * 0.8, -Math.PI * 0.2);
+    ctx.stroke();
+  });
+
+  // Earthshine on dark side
+  ctx.fillStyle = "rgba(140, 170, 220, 0.03)";
+  ctx.beginPath();
+  ctx.arc(cx + 22, cy, r - 2, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
 // ─── Pixel Heart ───
 const HEART_GRID = [
   [0,1,1,0,0,0,0,1,1,0,0],
@@ -1035,8 +1145,8 @@ function triggerHeartExplosion() {
   // Heart scale up and fade
   heartWrap.style.animation = "heartExplode 0.8s ease-out forwards";
 
-  // Spawn particles
-  const symbols = ["\u2764", "\u2728", "\u2726", "\uD83D\uDC96", "\u2B50", "\u2727"];
+  // Spawn particles — hearts and stars only
+  const symbols = ["\u2764\uFE0F", "\uD83D\uDC96", "\u2B50", "\uD83C\uDF1F", "\u2764\uFE0F", "\uD83D\uDC97", "\u2B50", "\uD83D\uDC95"];
   for (let i = 0; i < 20; i++) {
     const p = document.createElement("div");
     p.className = "explosion-particle";
@@ -1284,6 +1394,7 @@ document.addEventListener("DOMContentLoaded", () => {
   cleanOldKeys();
   initStarfield();
   renderMilkyWay();
+  renderMoon();
 
   createBigHeart();
   updateBigHeart(0);
