@@ -13,7 +13,7 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       overflow: hidden;
-      background: #0a0a2e;
+      background: #050510;
       color: #e2e8f0;
       font-family: 'Inter', sans-serif;
       min-height: 100dvh;
@@ -23,21 +23,55 @@
     }
     .font-arabic { font-family: 'Noto Naskh Arabic', serif; }
 
-    /* ─── Starfield ─── */
-    .stars-layer {
+    /* ─── Sky Gradient ─── */
+    #skyGradient {
       position: fixed;
-      top: 0; left: 0;
-      width: 2px; height: 2px;
-      border-radius: 50%;
+      inset: 0;
       z-index: 0;
+      background: linear-gradient(
+        to bottom,
+        #020212 0%,
+        #050520 15%,
+        #0a0a30 35%,
+        #0d1040 55%,
+        #111555 75%,
+        #151a4a 88%,
+        #1a1f3a 100%
+      );
     }
-    #stars1 { animation: drift 80s linear infinite; }
-    #stars2 { animation: drift 120s linear infinite; width: 3px; height: 3px; }
-    #stars3 { animation: drift 160s linear infinite; width: 1px; height: 1px; }
 
-    @keyframes drift {
-      from { transform: translateY(0); }
-      to { transform: translateY(-2000px); }
+    /* ─── Star Canvas ─── */
+    #starfieldCanvas {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    /* ─── Milky Way ─── */
+    #milkyWayCanvas {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.35;
+    }
+
+    /* ─── Horizon Haze ─── */
+    #horizonHaze {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 25%;
+      z-index: 1;
+      pointer-events: none;
+      background: linear-gradient(
+        to top,
+        rgba(15, 18, 50, 0.8) 0%,
+        rgba(12, 15, 45, 0.4) 40%,
+        transparent 100%
+      );
     }
 
     /* ─── Screens ─── */
@@ -101,16 +135,47 @@
       position: fixed;
       top: 8%;
       right: 10%;
-      width: 40px;
-      height: 40px;
+      width: 48px;
+      height: 48px;
       border-radius: 50%;
-      background: #fef3c7;
+      background: radial-gradient(
+        circle at 40% 40%,
+        #fef9e7 0%,
+        #fde68a 30%,
+        #d4c479 60%,
+        #b8a960 100%
+      );
       box-shadow:
-        inset -12px -2px 0 0 #0a0a2e,
-        0 0 20px rgba(254, 243, 199, 0.3),
-        0 0 60px rgba(254, 243, 199, 0.1);
+        inset -14px -2px 0 0 #050520,
+        inset 3px 2px 8px rgba(255, 255, 255, 0.15),
+        0 0 15px rgba(254, 243, 199, 0.5),
+        0 0 40px rgba(254, 243, 199, 0.25),
+        0 0 80px rgba(254, 243, 199, 0.1),
+        0 0 120px rgba(254, 243, 199, 0.05);
       z-index: 2;
       pointer-events: none;
+    }
+    /* Earthshine — faint glow on the dark side */
+    #moon::before {
+      content: '';
+      position: absolute;
+      inset: -8px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(180, 200, 255, 0.06), transparent 70%);
+      z-index: -1;
+    }
+    /* Subtle crater texture */
+    #moon::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at 30% 35%, rgba(0,0,0,0.08) 0%, transparent 6px),
+        radial-gradient(circle at 55% 25%, rgba(0,0,0,0.06) 0%, transparent 4px),
+        radial-gradient(circle at 40% 60%, rgba(0,0,0,0.07) 0%, transparent 5px),
+        radial-gradient(circle at 25% 50%, rgba(0,0,0,0.05) 0%, transparent 3px),
+        radial-gradient(circle at 45% 45%, rgba(0,0,0,0.04) 0%, transparent 8px);
     }
 
     /* ─── Shooting Stars ─── */
@@ -123,17 +188,36 @@
     }
     .shooting-star {
       position: absolute;
-      width: 80px;
+      width: 120px;
       height: 2px;
-      background: linear-gradient(to right, rgba(255,255,255,0.8), transparent);
+      background: linear-gradient(to left,
+        rgba(255, 255, 255, 0) 0%,
+        rgba(200, 220, 255, 0.15) 20%,
+        rgba(180, 210, 255, 0.5) 60%,
+        rgba(220, 240, 255, 0.9) 90%,
+        #fff 100%
+      );
       border-radius: 2px;
-      transform: rotate(-35deg);
-      animation: shoot 1.2s linear forwards;
+      transform: rotate(var(--shoot-angle, -35deg));
+      animation: shoot var(--shoot-duration, 1s) cubic-bezier(0.2, 0, 0.8, 1) forwards;
+      filter: blur(0.3px);
+    }
+    .shooting-star::before {
+      content: '';
+      position: absolute;
+      right: -1px;
+      top: -2px;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 0 6px 2px rgba(200, 220, 255, 0.8), 0 0 12px 4px rgba(200, 220, 255, 0.3);
     }
     @keyframes shoot {
-      0% { opacity: 1; transform: rotate(-35deg) translateX(0); }
-      70% { opacity: 1; }
-      100% { opacity: 0; transform: rotate(-35deg) translateX(400px); }
+      0% { opacity: 0; transform: rotate(var(--shoot-angle, -35deg)) translateX(0); }
+      8% { opacity: 1; }
+      75% { opacity: 0.8; }
+      100% { opacity: 0; transform: rotate(var(--shoot-angle, -35deg)) translateX(500px); }
     }
 
     /* ─── Sky Screen ─── */
@@ -165,39 +249,50 @@
     }
     .tappable-star::before {
       content: '';
-      width: 6px;
-      height: 6px;
+      width: var(--star-size, 5px);
+      height: var(--star-size, 5px);
       border-radius: 50%;
-      background: radial-gradient(circle, #fff, #fbbf24, transparent);
-      box-shadow: 0 0 8px 2px rgba(251, 191, 36, 0.5), 0 0 20px 4px rgba(251, 191, 36, 0.2);
-      animation: twinkle 2s ease-in-out infinite;
+      background: radial-gradient(circle,
+        var(--star-core, #fff) 0%,
+        var(--star-mid, rgba(200, 220, 255, 0.6)) 40%,
+        transparent 70%
+      );
+      box-shadow:
+        0 0 3px 1px var(--star-glow, rgba(200, 220, 255, 0.6)),
+        0 0 8px 2px var(--star-glow, rgba(200, 220, 255, 0.3)),
+        0 0 18px 4px var(--star-glow-outer, rgba(200, 220, 255, 0.1));
+      animation: twinkle var(--twinkle-speed, 3s) ease-in-out infinite;
+      animation-delay: var(--twinkle-delay, 0s);
+      transition: transform 0.2s ease;
+    }
+    .tappable-star:active::before {
+      transform: scale(1.6);
+    }
+    /* Four-point diffraction spike (subtle) */
+    .tappable-star::after {
+      content: '';
+      position: absolute;
+      width: 1px;
+      height: var(--spike-size, 20px);
+      background: linear-gradient(to bottom, transparent, var(--star-glow, rgba(200, 220, 255, 0.3)), transparent);
+      box-shadow: none;
+      opacity: 0.5;
+      animation: twinkle var(--twinkle-speed, 3s) ease-in-out infinite;
       animation-delay: var(--twinkle-delay, 0s);
     }
     .tappable-star.collected {
       pointer-events: none;
     }
-    .tappable-star.collected::before {
+    .tappable-star.collected::before,
+    .tappable-star.collected::after {
       opacity: 0;
       transition: opacity 0.3s ease;
     }
     @keyframes twinkle {
-      0%, 100% { opacity: 0.6; transform: scale(1); }
-      50% { opacity: 1; transform: scale(1.3); }
-    }
-
-    /* ─── Background stars (non-tappable) ─── */
-    .bg-star {
-      position: absolute;
-      border-radius: 50%;
-      background: #fff;
-      pointer-events: none;
-      z-index: 4;
-      animation: twinkle-subtle 3s ease-in-out infinite;
-      animation-delay: var(--twinkle-delay, 0s);
-    }
-    @keyframes twinkle-subtle {
-      0%, 100% { opacity: 0.2; }
-      50% { opacity: 0.5; }
+      0%, 100% { opacity: 0.5; transform: scale(1); }
+      25% { opacity: 0.85; transform: scale(1.05); }
+      50% { opacity: 1; transform: scale(1.15); }
+      75% { opacity: 0.7; transform: scale(0.95); }
     }
 
     /* ─── Star Counter ─── */
@@ -491,10 +586,17 @@
   </style>
 </head>
 <body>
-  <!-- Starfield -->
-  <div id="stars1" class="stars-layer"></div>
-  <div id="stars2" class="stars-layer"></div>
-  <div id="stars3" class="stars-layer"></div>
+  <!-- Sky Gradient -->
+  <div id="skyGradient"></div>
+
+  <!-- Milky Way -->
+  <canvas id="milkyWayCanvas"></canvas>
+
+  <!-- Star Canvas -->
+  <canvas id="starfieldCanvas"></canvas>
+
+  <!-- Horizon Haze -->
+  <div id="horizonHaze"></div>
 
   <!-- Sound Toggle -->
   <button id="soundToggle" class="sound-btn" aria-label="Toggle sound">&#x1F50A;</button>

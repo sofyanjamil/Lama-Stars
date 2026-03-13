@@ -48,16 +48,173 @@ function cleanOldKeys() {
   localStorage.removeItem("lamaStars_dailyProgress");
 }
 
-// ─── Starfield Generation ───
-function generateStars(count, layer) {
-  const el = document.getElementById(layer);
-  const shadows = [];
-  for (let i = 0; i < count; i++) {
-    const x = Math.random() * 2000;
-    const y = Math.random() * 2000;
-    shadows.push(`${x}px ${y}px #fff`);
+// ─── Star Color Temperatures ───
+// Realistic star colors based on spectral class
+const STAR_COLORS = [
+  { r: 155, g: 176, b: 255, name: "blue-white" },   // O/B class — hot
+  { r: 170, g: 191, b: 255, name: "blue-white2" },
+  { r: 202, g: 215, b: 255, name: "white-blue" },    // A class
+  { r: 248, g: 247, b: 255, name: "pure-white" },     // F class
+  { r: 255, g: 244, b: 234, name: "warm-white" },     // G class (Sun-like)
+  { r: 255, g: 210, b: 161, name: "yellow" },          // K class
+  { r: 255, g: 204, b: 111, name: "orange" },          // K class warm
+  { r: 255, g: 183, b: 108, name: "orange-red" },      // M class
+];
+
+// Weight distribution: more dim white stars, fewer bright colorful ones
+const COLOR_WEIGHTS = [0.08, 0.10, 0.18, 0.25, 0.18, 0.10, 0.07, 0.04];
+
+function pickStarColor() {
+  let r = Math.random();
+  for (let i = 0; i < COLOR_WEIGHTS.length; i++) {
+    r -= COLOR_WEIGHTS[i];
+    if (r <= 0) return STAR_COLORS[i];
   }
-  el.style.boxShadow = shadows.join(", ");
+  return STAR_COLORS[3]; // fallback: pure white
+}
+
+// ─── Canvas Starfield ───
+let bgStars = [];
+let starfieldCtx = null;
+let twinkleRafId = null;
+
+function initStarfield() {
+  const canvas = $("starfieldCanvas");
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = window.innerWidth * dpr;
+  canvas.height = window.innerHeight * dpr;
+  canvas.style.width = window.innerWidth + "px";
+  canvas.style.height = window.innerHeight + "px";
+  starfieldCtx = canvas.getContext("2d");
+  starfieldCtx.scale(dpr, dpr);
+
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+
+  // Generate ~600 background stars
+  bgStars = [];
+  for (let i = 0; i < 600; i++) {
+    const color = pickStarColor();
+    // More stars near center/milky way band
+    let x = Math.random() * w;
+    let y = Math.random() * h;
+
+    // Brightness: most are dim, few are bright
+    const brightRoll = Math.random();
+    let brightness, size;
+    if (brightRoll < 0.6) {
+      brightness = 0.15 + Math.random() * 0.25; // dim
+      size = 0.3 + Math.random() * 0.5;
+    } else if (brightRoll < 0.9) {
+      brightness = 0.4 + Math.random() * 0.35; // medium
+      size = 0.6 + Math.random() * 0.8;
+    } else {
+      brightness = 0.75 + Math.random() * 0.25; // bright
+      size = 1.0 + Math.random() * 1.2;
+    }
+
+    bgStars.push({
+      x, y, size, brightness,
+      baseBrightness: brightness,
+      color,
+      // Twinkle parameters — each star gets unique frequency + phase
+      twinkleSpeed: 0.5 + Math.random() * 2.5,  // cycles per second
+      twinklePhase: Math.random() * Math.PI * 2,
+      twinkleAmount: 0.1 + Math.random() * 0.4,  // how much it varies
+      // Atmospheric scintillation — rapid flicker
+      scintSpeed: 3 + Math.random() * 8,
+      scintPhase: Math.random() * Math.PI * 2,
+      scintAmount: 0.02 + Math.random() * 0.08,
+    });
+  }
+
+  startTwinkleLoop();
+}
+
+function startTwinkleLoop() {
+  let lastTime = 0;
+  function animate(timestamp) {
+    const t = timestamp / 1000; // seconds
+    const ctx = starfieldCtx;
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    ctx.clearRect(0, 0, w, h);
+
+    for (const s of bgStars) {
+      // Smooth twinkle + rapid scintillation
+      const twinkle = Math.sin(t * s.twinkleSpeed + s.twinklePhase) * s.twinkleAmount;
+      const scint = Math.sin(t * s.scintSpeed + s.scintPhase) * s.scintAmount;
+      const alpha = Math.max(0.05, Math.min(1, s.baseBrightness + twinkle + scint));
+
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${s.color.r}, ${s.color.g}, ${s.color.b}, ${alpha})`;
+      ctx.fill();
+
+      // Glow halo for brighter stars
+      if (s.baseBrightness > 0.5) {
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.size * 3, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${s.color.r}, ${s.color.g}, ${s.color.b}, ${alpha * 0.08})`;
+        ctx.fill();
+      }
+    }
+
+    twinkleRafId = requestAnimationFrame(animate);
+  }
+  twinkleRafId = requestAnimationFrame(animate);
+}
+
+// ─── Milky Way ───
+function renderMilkyWay() {
+  const canvas = $("milkyWayCanvas");
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = window.innerWidth * dpr;
+  canvas.height = window.innerHeight * dpr;
+  canvas.style.width = window.innerWidth + "px";
+  canvas.style.height = window.innerHeight + "px";
+  const ctx = canvas.getContext("2d");
+  ctx.scale(dpr, dpr);
+
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+
+  // Diagonal band from top-left to bottom-right
+  ctx.save();
+  ctx.translate(w / 2, h / 2);
+  ctx.rotate(-0.5); // slight angle
+  ctx.translate(-w / 2, -h / 2);
+
+  // Main diffuse glow
+  const grad = ctx.createLinearGradient(0, h * 0.2, 0, h * 0.7);
+  grad.addColorStop(0, "transparent");
+  grad.addColorStop(0.3, "rgba(120, 130, 180, 0.04)");
+  grad.addColorStop(0.45, "rgba(140, 150, 200, 0.07)");
+  grad.addColorStop(0.5, "rgba(150, 160, 210, 0.08)");
+  grad.addColorStop(0.55, "rgba(140, 150, 200, 0.07)");
+  grad.addColorStop(0.7, "rgba(120, 130, 180, 0.04)");
+  grad.addColorStop(1, "transparent");
+
+  ctx.fillStyle = grad;
+  ctx.fillRect(-w * 0.3, 0, w * 1.6, h);
+
+  // Scatter tiny dense stars along the band
+  for (let i = 0; i < 300; i++) {
+    const x = Math.random() * w * 1.2 - w * 0.1;
+    const bandCenter = h * 0.48;
+    const bandWidth = h * 0.15;
+    // Gaussian-ish distribution around center
+    const y = bandCenter + (Math.random() + Math.random() + Math.random() - 1.5) * bandWidth;
+    const alpha = 0.1 + Math.random() * 0.25;
+    const sz = 0.2 + Math.random() * 0.6;
+
+    ctx.beginPath();
+    ctx.arc(x, y, sz, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(200, 210, 240, ${alpha})`;
+    ctx.fill();
+  }
+
+  ctx.restore();
 }
 
 // ─── Pixel Heart ───
@@ -329,7 +486,16 @@ function generateTappableStars(count) {
     }
   }
 
-  // Create tappable star buttons
+  // Star color palette for tappable stars
+  const tappableColors = [
+    { core: "#fff",    mid: "rgba(200, 220, 255, 0.6)", glow: "rgba(200, 220, 255, 0.4)", outer: "rgba(200, 220, 255, 0.12)" }, // blue-white
+    { core: "#fff",    mid: "rgba(255, 248, 240, 0.6)", glow: "rgba(255, 244, 234, 0.4)", outer: "rgba(255, 244, 234, 0.12)" }, // warm white
+    { core: "#fff",    mid: "rgba(255, 230, 180, 0.6)", glow: "rgba(255, 210, 161, 0.4)", outer: "rgba(255, 210, 161, 0.12)" }, // yellow
+    { core: "#fffdf5", mid: "rgba(248, 247, 255, 0.6)", glow: "rgba(248, 247, 255, 0.4)", outer: "rgba(248, 247, 255, 0.12)" }, // pure white
+    { core: "#fff",    mid: "rgba(180, 210, 255, 0.6)", glow: "rgba(155, 176, 255, 0.4)", outer: "rgba(155, 176, 255, 0.12)" }, // blue
+  ];
+
+  // Create tappable star buttons with varied colors
   stars.forEach((s, i) => {
     const btn = document.createElement("button");
     btn.className = "tappable-star";
@@ -337,24 +503,22 @@ function generateTappableStars(count) {
     btn.setAttribute("role", "button");
     btn.style.left = `calc(${s.x}% - 22px)`;
     btn.style.top = `calc(${s.y}% - 22px)`;
-    btn.style.setProperty("--twinkle-delay", `${Math.random() * 2}s`);
+
+    // Assign color
+    const c = tappableColors[i % tappableColors.length];
+    btn.style.setProperty("--star-core", c.core);
+    btn.style.setProperty("--star-mid", c.mid);
+    btn.style.setProperty("--star-glow", c.glow);
+    btn.style.setProperty("--star-glow-outer", c.outer);
+    btn.style.setProperty("--star-size", `${4 + Math.random() * 3}px`);
+    btn.style.setProperty("--spike-size", `${16 + Math.random() * 12}px`);
+    btn.style.setProperty("--twinkle-delay", `${Math.random() * 3}s`);
+    btn.style.setProperty("--twinkle-speed", `${2.5 + Math.random() * 2}s`);
+
     btn.dataset.index = i;
     btn.addEventListener("click", () => onStarTap(btn, i));
     canvas.appendChild(btn);
   });
-
-  // Add ~40 background (non-tappable) dimmer stars
-  for (let i = 0; i < 40; i++) {
-    const dot = document.createElement("div");
-    dot.className = "bg-star";
-    const size = 1 + Math.random() * 2;
-    dot.style.width = `${size}px`;
-    dot.style.height = `${size}px`;
-    dot.style.left = `${Math.random() * 100}%`;
-    dot.style.top = `${Math.random() * 100}%`;
-    dot.style.setProperty("--twinkle-delay", `${Math.random() * 3}s`);
-    canvas.appendChild(dot);
-  }
 }
 
 // ─── Star Tap Handler ───
@@ -663,8 +827,14 @@ function spawnShootingStar() {
   star.className = "shooting-star";
   star.style.top = `${5 + Math.random() * 40}%`;
   star.style.left = `${Math.random() * 60}%`;
+  // Vary angle and duration for realism
+  const angle = -25 - Math.random() * 25; // -25 to -50 degrees
+  const duration = 0.6 + Math.random() * 0.8; // 0.6-1.4s
+  star.style.setProperty("--shoot-angle", `${angle}deg`);
+  star.style.setProperty("--shoot-duration", `${duration}s`);
+  star.style.opacity = `${0.6 + Math.random() * 0.4}`;
   container.appendChild(star);
-  setTimeout(() => star.remove(), 1500);
+  setTimeout(() => star.remove(), duration * 1000 + 500);
 }
 
 function startShootingStars() {
@@ -692,12 +862,22 @@ function resumeRound(saved) {
   return true;
 }
 
+// ─── Resize Handler ───
+let resizeTimeout = null;
+window.addEventListener("resize", () => {
+  clearTimeout(resizeTimeout);
+  resizeTimeout = setTimeout(() => {
+    if (twinkleRafId) cancelAnimationFrame(twinkleRafId);
+    initStarfield();
+    renderMilkyWay();
+  }, 200);
+});
+
 // ─── Init ───
 document.addEventListener("DOMContentLoaded", () => {
   cleanOldKeys();
-  generateStars(200, "stars1");
-  generateStars(100, "stars2");
-  generateStars(50, "stars3");
+  initStarfield();
+  renderMilkyWay();
 
   createBigHeart();
   updateBigHeart(0);
