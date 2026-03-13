@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0a0a2e">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Lama Stars</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;600&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* ─── Base ─── */
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: #0a0a2e;
+      color: #e2e8f0;
+      font-family: 'Inter', sans-serif;
+      min-height: 100dvh;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .font-arabic { font-family: 'Noto Naskh Arabic', serif; }
+
+    /* ─── Starfield ─── */
+    .stars-layer {
+      position: fixed;
+      top: 0; left: 0;
+      width: 2px; height: 2px;
+      border-radius: 50%;
+      z-index: 0;
+    }
+    #stars1 { animation: drift 80s linear infinite; }
+    #stars2 { animation: drift 120s linear infinite; width: 3px; height: 3px; }
+    #stars3 { animation: drift 160s linear infinite; width: 1px; height: 1px; }
+
+    @keyframes drift {
+      from { transform: translateY(0); }
+      to { transform: translateY(-2000px); }
+    }
+
+    /* ─── Screens ─── */
+    .screen {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    }
+    .hidden { display: none !important; }
+
+    .fade-in {
+      animation: fadeIn 0.8s ease forwards;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    /* ─── Begin Button ─── */
+    .glow-btn {
+      padding: 14px 48px;
+      border: none;
+      border-radius: 9999px;
+      font-size: 1.15rem;
+      font-weight: 600;
+      color: #0a0a2e;
+      background: linear-gradient(135deg, #fbbf24, #f59e0b);
+      cursor: pointer;
+      box-shadow: 0 0 30px rgba(251, 191, 36, 0.4), 0 0 60px rgba(251, 191, 36, 0.15);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      min-height: 44px;
+      min-width: 44px;
+    }
+    .glow-btn:hover, .glow-btn:active {
+      transform: scale(1.05);
+      box-shadow: 0 0 40px rgba(251, 191, 36, 0.6), 0 0 80px rgba(251, 191, 36, 0.25);
+    }
+
+    /* ─── Pixel Hearts ─── */
+    .heart-grid {
+      display: grid;
+      grid-template-columns: repeat(11, 4px);
+      grid-template-rows: repeat(10, 4px);
+      gap: 1px;
+    }
+    .heart-pixel {
+      width: 4px;
+      height: 4px;
+      border-radius: 1px;
+      background-color: #1e1e4a;
+      opacity: 0.3;
+      transition: background-color 0.5s ease, opacity 0.5s ease;
+    }
+    .heart-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+    .heart-label {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      opacity: 0.7;
+    }
+
+    /* ─── Card ─── */
+    .card {
+      background: rgba(255, 255, 255, 0.06);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      padding: 32px 28px;
+      max-width: 360px;
+      width: 90vw;
+      min-height: 160px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      cursor: pointer;
+      transition: transform 0.2s ease;
+    }
+    .card:active {
+      transform: scale(0.97);
+    }
+    .card-enter {
+      animation: cardIn 0.4s ease forwards;
+    }
+    .card-exit {
+      animation: cardOut 0.3s ease forwards;
+    }
+    @keyframes cardIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes cardOut {
+      from { opacity: 1; transform: translateY(0); }
+      to { opacity: 0; transform: translateY(-20px); }
+    }
+
+    /* ─── Tap prompt pulse ─── */
+    .pulse {
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 0.4; }
+      50% { opacity: 0.8; }
+    }
+
+    /* ─── Bloom particles ─── */
+    #bloomContainer {
+      position: fixed;
+      top: 50%; left: 50%;
+      z-index: 50;
+      pointer-events: none;
+    }
+    .bloom-particle {
+      position: absolute;
+      font-size: 1.5rem;
+      animation: bloom 3s ease-out forwards;
+    }
+    @keyframes bloom {
+      0% {
+        opacity: 1;
+        transform: translate(0, 0) scale(0.5);
+      }
+      70% {
+        opacity: 0.8;
+      }
+      100% {
+        opacity: 0;
+        transform: translate(var(--tx), var(--ty)) scale(1.2);
+      }
+    }
+
+    /* ─── Sound toggle ─── */
+    .sound-btn {
+      position: fixed;
+      top: 16px; right: 16px;
+      z-index: 100;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 50%;
+      width: 44px; height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+      cursor: pointer;
+      color: #e2e8f0;
+      transition: background 0.2s;
+    }
+    .sound-btn:hover { background: rgba(255,255,255,0.15); }
+
+    /* ─── Win screen floating stars ─── */
+    .float-star {
+      position: absolute;
+      animation: floatStar 6s ease-in-out infinite;
+      opacity: 0.3;
+      font-size: 1rem;
+    }
+    @keyframes floatStar {
+      0%, 100% { transform: translateY(0) rotate(0deg); }
+      50% { transform: translateY(-15px) rotate(180deg); }
+    }
+  </style>
+</head>
+<body>
+  <!-- Starfield -->
+  <div id="stars1" class="stars-layer"></div>
+  <div id="stars2" class="stars-layer"></div>
+  <div id="stars3" class="stars-layer"></div>
+
+  <!-- Sound Toggle -->
+  <button id="soundToggle" class="sound-btn" aria-label="Toggle sound">&#x1F50A;</button>
+
+  <!-- Bloom particles container -->
+  <div id="bloomContainer"></div>
+
+  <!-- ═══ Welcome Screen ═══ -->
+  <div id="welcomeScreen" class="screen">
+    <div class="flex flex-col items-center gap-6 px-4">
+      <h1 class="text-4xl md:text-5xl font-semibold tracking-tight" style="color: #fbbf24;">
+        Lama Stars
+      </h1>
+      <p id="welcomeSubtitle" class="text-base md:text-lg opacity-70 text-center max-w-xs">
+        A quiet place, just for you, Lama
+      </p>
+      <div class="mt-4">
+        <button id="beginBtn" class="glow-btn">Begin</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Game Screen ═══ -->
+  <div id="gameScreen" class="screen hidden">
+    <div class="flex flex-col items-center gap-8 w-full px-4" style="max-width: 420px;">
+
+      <!-- Hearts row -->
+      <div class="flex items-end gap-8">
+        <div id="heartEnergy" class="heart-container">
+          <div class="heart-grid"></div>
+          <span class="heart-label" style="color: #f59e0b;">Energy</span>
+        </div>
+        <div id="heartHappiness" class="heart-container">
+          <div class="heart-grid"></div>
+          <span class="heart-label" style="color: #ec4899;">Happiness</span>
+        </div>
+        <div id="heartLove" class="heart-container">
+          <div class="heart-grid"></div>
+          <span class="heart-label" style="color: #ef4444;">Love</span>
+        </div>
+      </div>
+
+      <!-- Card -->
+      <div id="card" class="card card-enter">
+        <p id="cardText" class="text-xl md:text-2xl leading-relaxed"></p>
+      </div>
+
+      <!-- Counter + Tap prompt -->
+      <div class="flex flex-col items-center gap-2">
+        <span id="cardCounter" class="text-xs opacity-40"></span>
+        <p id="tapPrompt" class="text-sm opacity-40 pulse cursor-pointer">Tap to continue</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Win Screen ═══ -->
+  <div id="winScreen" class="screen hidden">
+    <div class="flex flex-col items-center gap-6 px-4 text-center relative">
+      <!-- Floating ambient stars -->
+      <span class="float-star" style="top: -60px; left: -40px; animation-delay: 0s;">&#x2726;</span>
+      <span class="float-star" style="top: -30px; right: -50px; animation-delay: 1s;">&#x2727;</span>
+      <span class="float-star" style="bottom: -40px; left: 20px; animation-delay: 2s;">&#x2726;</span>
+      <span class="float-star" style="bottom: -20px; right: -30px; animation-delay: 3s;">&#x2727;</span>
+
+      <div class="text-5xl mb-2">&#x2728;</div>
+      <h2 class="text-2xl md:text-3xl font-semibold" style="color: #fbbf24;">
+        You did it.
+      </h2>
+      <p class="text-lg md:text-xl opacity-80 max-w-xs leading-relaxed">
+        You're safe. Let's rest.
+      </p>
+      <p class="text-sm opacity-40 mt-8">Come back tomorrow for new cards &#x2665;</p>
+    </div>
+  </div>
+
+  <script src="affirmations.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
