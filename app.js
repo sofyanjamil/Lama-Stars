@@ -645,29 +645,17 @@ function startFireCrackling() {
   lfo.start();
   ambientNodes.push(noise, lfo);
 
-  // Crackle pops — periodic random clicks
-  function scheduleCrackle() {
-    if (!ambientMasterGain) return;
-    const now = audioCtx.currentTime;
-    const popCount = 1 + Math.floor(Math.random() * 3);
-
-    for (let i = 0; i < popCount; i++) {
-      const t = now + Math.random() * 0.15;
-      const osc = audioCtx.createOscillator();
-      const popGain = audioCtx.createGain();
-      osc.type = "square";
-      osc.frequency.value = 800 + Math.random() * 2000;
-      popGain.gain.setValueAtTime(0.02 + Math.random() * 0.03, t);
-      popGain.gain.exponentialRampToValueAtTime(0.001, t + 0.02 + Math.random() * 0.03);
-      osc.connect(popGain).connect(ambientMasterGain);
-      osc.start(t);
-      osc.stop(t + 0.05);
-    }
-
-    const nextDelay = 200 + Math.random() * 600;
-    setTimeout(scheduleCrackle, nextDelay);
-  }
-  scheduleCrackle();
+  // Soft mid-frequency warmth layer
+  const noise2 = createNoiseSource();
+  const bp2 = audioCtx.createBiquadFilter();
+  bp2.type = "bandpass";
+  bp2.frequency.value = 500;
+  bp2.Q.value = 0.8;
+  const g2 = audioCtx.createGain();
+  g2.gain.value = 0.02;
+  noise2.connect(bp2).connect(g2).connect(ambientMasterGain);
+  noise2.start();
+  ambientNodes.push(noise2);
 }
 
 function startMountainWind() {
@@ -925,6 +913,13 @@ function generateTappableStars(count) {
     btn.style.setProperty("--spike-size", `${16 + Math.random() * 12}px`);
     btn.style.setProperty("--twinkle-delay", `${Math.random() * 3}s`);
     btn.style.setProperty("--twinkle-speed", `${2.5 + Math.random() * 2}s`);
+    // Unique drift offsets so each star wanders differently
+    btn.style.setProperty("--dx1", `${(Math.random() - 0.5) * 6}px`);
+    btn.style.setProperty("--dy1", `${(Math.random() - 0.5) * 6}px`);
+    btn.style.setProperty("--dx2", `${(Math.random() - 0.5) * 8}px`);
+    btn.style.setProperty("--dy2", `${(Math.random() - 0.5) * 8}px`);
+    btn.style.setProperty("--dx3", `${(Math.random() - 0.5) * 6}px`);
+    btn.style.setProperty("--dy3", `${(Math.random() - 0.5) * 6}px`);
 
     btn.dataset.index = i;
     btn.addEventListener("click", () => onStarTap(btn, i));
