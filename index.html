@@ -8,11 +8,10 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Lama Stars</title>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;600&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
-  <script src="https://cdn.tailwindcss.com"></script>
   <style>
     /* ─── Base ─── */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      margin: 0;
       overflow: hidden;
       background: #0a0a2e;
       color: #e2e8f0;
@@ -50,17 +49,32 @@
       align-items: center;
       justify-content: center;
       z-index: 10;
-      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+      transition: opacity 0.5s ease;
     }
     .hidden { display: none !important; }
+    .fade-in { animation: fadeIn 0.8s ease forwards; }
+    .fade-out { animation: fadeOut 0.5s ease forwards; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
 
-    .fade-in {
-      animation: fadeIn 0.8s ease forwards;
+    /* ─── Sound Toggle ─── */
+    .sound-btn {
+      position: fixed;
+      top: 16px; right: 16px;
+      z-index: 100;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 50%;
+      width: 44px; height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+      cursor: pointer;
+      color: #e2e8f0;
+      transition: background 0.2s;
     }
-    @keyframes fadeIn {
-      from { opacity: 0; }
-      to { opacity: 1; }
-    }
+    .sound-btn:hover { background: rgba(255,255,255,0.15); }
 
     /* ─── Begin Button ─── */
     .glow-btn {
@@ -82,134 +96,397 @@
       box-shadow: 0 0 40px rgba(251, 191, 36, 0.6), 0 0 80px rgba(251, 191, 36, 0.25);
     }
 
-    /* ─── Pixel Hearts ─── */
-    .heart-grid {
+    /* ─── Moon ─── */
+    #moon {
+      position: fixed;
+      top: 8%;
+      right: 10%;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: #fef3c7;
+      box-shadow:
+        inset -12px -2px 0 0 #0a0a2e,
+        0 0 20px rgba(254, 243, 199, 0.3),
+        0 0 60px rgba(254, 243, 199, 0.1);
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    /* ─── Shooting Stars ─── */
+    #shootingStarContainer {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .shooting-star {
+      position: absolute;
+      width: 80px;
+      height: 2px;
+      background: linear-gradient(to right, rgba(255,255,255,0.8), transparent);
+      border-radius: 2px;
+      transform: rotate(-35deg);
+      animation: shoot 1.2s linear forwards;
+    }
+    @keyframes shoot {
+      0% { opacity: 1; transform: rotate(-35deg) translateX(0); }
+      70% { opacity: 1; }
+      100% { opacity: 0; transform: rotate(-35deg) translateX(400px); }
+    }
+
+    /* ─── Sky Screen ─── */
+    #skyScreen {
+      justify-content: flex-start;
+      padding-top: 0;
+    }
+    #skyCanvas {
+      position: fixed;
+      inset: 0;
+      z-index: 5;
+      pointer-events: none;
+    }
+
+    /* ─── Tappable Stars ─── */
+    .tappable-star {
+      position: absolute;
+      width: 44px;
+      height: 44px;
+      border: none;
+      background: none;
+      cursor: pointer;
+      z-index: 6;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      pointer-events: auto;
+    }
+    .tappable-star::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #fff, #fbbf24, transparent);
+      box-shadow: 0 0 8px 2px rgba(251, 191, 36, 0.5), 0 0 20px 4px rgba(251, 191, 36, 0.2);
+      animation: twinkle 2s ease-in-out infinite;
+      animation-delay: var(--twinkle-delay, 0s);
+    }
+    .tappable-star.collected {
+      pointer-events: none;
+    }
+    .tappable-star.collected::before {
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    @keyframes twinkle {
+      0%, 100% { opacity: 0.6; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.3); }
+    }
+
+    /* ─── Background stars (non-tappable) ─── */
+    .bg-star {
+      position: absolute;
+      border-radius: 50%;
+      background: #fff;
+      pointer-events: none;
+      z-index: 4;
+      animation: twinkle-subtle 3s ease-in-out infinite;
+      animation-delay: var(--twinkle-delay, 0s);
+    }
+    @keyframes twinkle-subtle {
+      0%, 100% { opacity: 0.2; }
+      50% { opacity: 0.5; }
+    }
+
+    /* ─── Star Counter ─── */
+    #starCounter {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 20;
+      font-size: 0.85rem;
+      color: rgba(255, 255, 255, 0.6);
+      letter-spacing: 0.05em;
+    }
+
+    /* ─── Big Heart ─── */
+    #bigHeartWrap {
+      position: fixed;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 20;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+    .big-heart-grid {
       display: grid;
-      grid-template-columns: repeat(11, 4px);
-      grid-template-rows: repeat(10, 4px);
+      grid-template-columns: repeat(11, 6px);
+      grid-template-rows: repeat(10, 6px);
       gap: 1px;
+      transition: filter 0.5s ease;
     }
     .heart-pixel {
-      width: 4px;
-      height: 4px;
+      width: 6px;
+      height: 6px;
       border-radius: 1px;
       background-color: #1e1e4a;
       opacity: 0.3;
       transition: background-color 0.5s ease, opacity 0.5s ease;
     }
-    .heart-container {
+
+    /* ─── Heart Explosion ─── */
+    @keyframes heartExplode {
+      0% { transform: translateX(-50%) scale(1); opacity: 1; }
+      50% { transform: translateX(-50%) scale(1.8); opacity: 0.8; }
+      100% { transform: translateX(-50%) scale(2.5); opacity: 0; }
+    }
+    .explosion-particle {
+      position: fixed;
+      pointer-events: none;
+      z-index: 50;
+      font-size: 1.2rem;
+      animation: particleFly 1.5s ease-out forwards;
+    }
+    @keyframes particleFly {
+      0% { opacity: 1; transform: translate(0, 0) scale(1); }
+      100% { opacity: 0; transform: translate(var(--px), var(--py)) scale(0.3); }
+    }
+
+    /* ─── Fragment Flight ─── */
+    #fragmentFlight {
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      pointer-events: none;
+    }
+    .flight-fragment {
+      position: fixed;
+      font-size: 0.9rem;
+      color: #fbbf24;
+      white-space: nowrap;
+      pointer-events: none;
+      z-index: 31;
+      text-shadow: 0 0 10px rgba(251, 191, 36, 0.8);
+      opacity: 0;
+    }
+
+    /* ─── Reveal Screen ─── */
+    #revealScreen {
+      z-index: 40;
+      background: rgba(10, 10, 46, 0.85);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+    #fragmentAssembly {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      max-width: 340px;
+      padding: 0 20px;
+      min-height: 80px;
+    }
+    #fragmentAssembly[dir="rtl"] {
+      direction: rtl;
+    }
+    .assembled-fragment {
+      font-size: 1.3rem;
+      color: #fbbf24;
+      opacity: 0;
+      transform: translate(var(--fromX, 0), var(--fromY, 0));
+      transition: transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.6s ease;
+    }
+    .assembled-fragment.in-place {
+      opacity: 1;
+      transform: translate(0, 0);
+    }
+    .reveal-btn {
+      padding: 12px 36px;
+      border: none;
+      border-radius: 9999px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      min-height: 44px;
+      transition: transform 0.2s ease, opacity 0.2s ease;
+      opacity: 0;
+    }
+    .reveal-btn.visible {
+      opacity: 1;
+    }
+    .reveal-btn:active {
+      transform: scale(0.95);
+    }
+    #collectTrophyBtn {
+      color: #0a0a2e;
+      background: linear-gradient(135deg, #fbbf24, #f59e0b);
+      box-shadow: 0 0 20px rgba(251, 191, 36, 0.3);
+      margin-top: 32px;
+    }
+    #newRoundBtn {
+      color: #e2e8f0;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      margin-top: 12px;
+    }
+
+    /* ─── Trophy Earned Animation ─── */
+    .trophy-earned {
+      font-size: 3rem;
+      animation: trophyBounce 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
+    @keyframes trophyBounce {
+      0% { transform: scale(0); opacity: 0; }
+      60% { transform: scale(1.3); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    /* ─── Trophy Screen ─── */
+    #trophyScreen {
+      justify-content: flex-start;
+      padding-top: 60px;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    #trophyGrid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+      gap: 16px;
+      width: 100%;
+      max-width: 400px;
+      padding: 20px;
+    }
+    .trophy-cell {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 6px;
+      gap: 4px;
+      cursor: pointer;
+      padding: 12px 8px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      transition: background 0.2s, transform 0.2s;
+      min-height: 44px;
+      min-width: 44px;
     }
-    .heart-label {
-      font-size: 0.65rem;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      opacity: 0.7;
+    .trophy-cell:active {
+      transform: scale(0.95);
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .trophy-icon {
+      font-size: 1.8rem;
+    }
+    .trophy-date {
+      font-size: 0.55rem;
+      opacity: 0.4;
+    }
+    .trophy-empty {
+      text-align: center;
+      opacity: 0.5;
+      font-size: 0.95rem;
+      padding: 40px 20px;
+      line-height: 1.6;
+    }
+    .trophy-shelf-title {
+      font-size: 1.3rem;
+      font-weight: 600;
+      color: #fbbf24;
+      margin-bottom: 8px;
     }
 
-    /* ─── Card ─── */
-    .card {
-      background: rgba(255, 255, 255, 0.06);
+    /* ─── Trophy Modal ─── */
+    #trophyModal {
+      position: fixed;
+      inset: 0;
+      z-index: 60;
+      background: rgba(10, 10, 46, 0.92);
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 16px;
-      padding: 32px 28px;
-      max-width: 360px;
-      width: 90vw;
-      min-height: 160px;
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
+      gap: 16px;
+      padding: 20px;
+    }
+    #trophyModalIcon {
+      font-size: 3rem;
+    }
+    #trophyModalText {
+      font-size: 1.2rem;
       text-align: center;
+      line-height: 1.7;
+      max-width: 320px;
+      color: #fbbf24;
+    }
+    #trophyModalDate {
+      font-size: 0.75rem;
+      opacity: 0.4;
+      margin-top: 4px;
+    }
+    #trophyModalClose {
+      margin-top: 24px;
+      padding: 10px 32px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 9999px;
+      background: rgba(255, 255, 255, 0.06);
+      color: #e2e8f0;
+      font-size: 0.9rem;
       cursor: pointer;
-      transition: transform 0.2s ease;
-    }
-    .card:active {
-      transform: scale(0.97);
-    }
-    .card-enter {
-      animation: cardIn 0.4s ease forwards;
-    }
-    .card-exit {
-      animation: cardOut 0.3s ease forwards;
-    }
-    @keyframes cardIn {
-      from { opacity: 0; transform: translateY(20px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    @keyframes cardOut {
-      from { opacity: 1; transform: translateY(0); }
-      to { opacity: 0; transform: translateY(-20px); }
+      min-height: 44px;
     }
 
-    /* ─── Tap prompt pulse ─── */
-    .pulse {
-      animation: pulse 2s ease-in-out infinite;
-    }
-    @keyframes pulse {
-      0%, 100% { opacity: 0.4; }
-      50% { opacity: 0.8; }
-    }
-
-    /* ─── Bloom particles ─── */
-    #bloomContainer {
+    /* ─── Tab Bar ─── */
+    #tabBar {
       position: fixed;
-      top: 50%; left: 50%;
+      bottom: 0;
+      left: 0;
+      right: 0;
       z-index: 50;
-      pointer-events: none;
-    }
-    .bloom-particle {
-      position: absolute;
-      font-size: 1.5rem;
-      animation: bloom 3s ease-out forwards;
-    }
-    @keyframes bloom {
-      0% {
-        opacity: 1;
-        transform: translate(0, 0) scale(0.5);
-      }
-      70% {
-        opacity: 0.8;
-      }
-      100% {
-        opacity: 0;
-        transform: translate(var(--tx), var(--ty)) scale(1.2);
-      }
-    }
-
-    /* ─── Sound toggle ─── */
-    .sound-btn {
-      position: fixed;
-      top: 16px; right: 16px;
-      z-index: 100;
-      background: rgba(255,255,255,0.08);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 50%;
-      width: 44px; height: 44px;
       display: flex;
+      background: rgba(10, 10, 46, 0.95);
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    .tab-btn {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
-      font-size: 1.25rem;
+      gap: 2px;
+      padding: 10px 0;
+      border: none;
+      background: none;
+      color: rgba(255, 255, 255, 0.4);
+      font-size: 0.7rem;
       cursor: pointer;
-      color: #e2e8f0;
-      transition: background 0.2s;
+      transition: color 0.2s;
+      min-height: 50px;
     }
-    .sound-btn:hover { background: rgba(255,255,255,0.15); }
+    .tab-btn.active {
+      color: #fbbf24;
+    }
+    .tab-btn .tab-icon {
+      font-size: 1.3rem;
+    }
 
-    /* ─── Win screen floating stars ─── */
-    .float-star {
-      position: absolute;
-      animation: floatStar 6s ease-in-out infinite;
-      opacity: 0.3;
-      font-size: 1rem;
-    }
-    @keyframes floatStar {
-      0%, 100% { transform: translateY(0) rotate(0deg); }
-      50% { transform: translateY(-15px) rotate(180deg); }
+    /* ─── Landscape ─── */
+    @media (orientation: landscape) and (max-height: 500px) {
+      #bigHeartWrap { bottom: 60px; }
+      .big-heart-grid {
+        grid-template-columns: repeat(11, 4px);
+        grid-template-rows: repeat(10, 4px);
+      }
+      .heart-pixel { width: 4px; height: 4px; }
     }
   </style>
 </head>
@@ -222,78 +499,75 @@
   <!-- Sound Toggle -->
   <button id="soundToggle" class="sound-btn" aria-label="Toggle sound">&#x1F50A;</button>
 
-  <!-- Bloom particles container -->
-  <div id="bloomContainer"></div>
+  <!-- Moon -->
+  <div id="moon" class="hidden"></div>
+
+  <!-- Shooting Stars -->
+  <div id="shootingStarContainer"></div>
 
   <!-- ═══ Welcome Screen ═══ -->
   <div id="welcomeScreen" class="screen">
-    <div class="flex flex-col items-center gap-6 px-4">
-      <h1 class="text-4xl md:text-5xl font-semibold tracking-tight" style="color: #fbbf24;">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:24px;padding:0 20px;">
+      <h1 style="font-size:2.5rem;font-weight:600;color:#fbbf24;letter-spacing:-0.02em;">
         Lama Stars
       </h1>
-      <p id="welcomeSubtitle" class="text-base md:text-lg opacity-70 text-center max-w-xs">
-        A quiet place, just for you, Lama
+      <p style="font-size:1.05rem;opacity:0.7;text-align:center;max-width:280px;line-height:1.6;">
+        Pick the stars that call to you
       </p>
-      <div class="mt-4">
+      <div style="margin-top:16px;">
         <button id="beginBtn" class="glow-btn">Begin</button>
       </div>
     </div>
   </div>
 
-  <!-- ═══ Game Screen ═══ -->
-  <div id="gameScreen" class="screen hidden">
-    <div class="flex flex-col items-center gap-8 w-full px-4" style="max-width: 420px;">
-
-      <!-- Hearts row -->
-      <div class="flex items-end gap-8">
-        <div id="heartEnergy" class="heart-container">
-          <div class="heart-grid"></div>
-          <span class="heart-label" style="color: #f59e0b;">Energy</span>
-        </div>
-        <div id="heartHappiness" class="heart-container">
-          <div class="heart-grid"></div>
-          <span class="heart-label" style="color: #ec4899;">Happiness</span>
-        </div>
-        <div id="heartLove" class="heart-container">
-          <div class="heart-grid"></div>
-          <span class="heart-label" style="color: #ef4444;">Love</span>
-        </div>
-      </div>
-
-      <!-- Card -->
-      <div id="card" class="card card-enter">
-        <p id="cardText" class="text-xl md:text-2xl leading-relaxed"></p>
-      </div>
-
-      <!-- Counter + Tap prompt -->
-      <div class="flex flex-col items-center gap-2">
-        <span id="cardCounter" class="text-xs opacity-40"></span>
-        <p id="tapPrompt" class="text-sm opacity-40 pulse cursor-pointer">Tap to continue</p>
-      </div>
+  <!-- ═══ Sky Screen ═══ -->
+  <div id="skyScreen" class="screen hidden">
+    <div id="skyCanvas"></div>
+    <div id="starCounter"></div>
+    <div id="bigHeartWrap">
+      <div id="bigHeart" class="big-heart-grid"></div>
     </div>
   </div>
 
-  <!-- ═══ Win Screen ═══ -->
-  <div id="winScreen" class="screen hidden">
-    <div class="flex flex-col items-center gap-6 px-4 text-center relative">
-      <!-- Floating ambient stars -->
-      <span class="float-star" style="top: -60px; left: -40px; animation-delay: 0s;">&#x2726;</span>
-      <span class="float-star" style="top: -30px; right: -50px; animation-delay: 1s;">&#x2727;</span>
-      <span class="float-star" style="bottom: -40px; left: 20px; animation-delay: 2s;">&#x2726;</span>
-      <span class="float-star" style="bottom: -20px; right: -30px; animation-delay: 3s;">&#x2727;</span>
+  <!-- Fragment Flight Overlay -->
+  <div id="fragmentFlight"></div>
 
-      <div class="text-5xl mb-2">&#x2728;</div>
-      <h2 class="text-2xl md:text-3xl font-semibold" style="color: #fbbf24;">
-        You did it.
-      </h2>
-      <p class="text-lg md:text-xl opacity-80 max-w-xs leading-relaxed">
-        You're safe. Let's rest.
-      </p>
-      <p class="text-sm opacity-40 mt-8">Come back tomorrow for new cards &#x2665;</p>
+  <!-- ═══ Reveal Screen ═══ -->
+  <div id="revealScreen" class="screen hidden">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+      <div id="fragmentAssembly"></div>
+      <button id="collectTrophyBtn" class="reveal-btn">Collect Trophy</button>
+      <button id="newRoundBtn" class="reveal-btn">Pick More Stars</button>
     </div>
   </div>
 
-  <script src="affirmations.js"></script>
+  <!-- ═══ Trophy Screen ═══ -->
+  <div id="trophyScreen" class="screen hidden">
+    <div class="trophy-shelf-title">Your Collection</div>
+    <div id="trophyGrid"></div>
+  </div>
+
+  <!-- Trophy Modal -->
+  <div id="trophyModal" class="hidden">
+    <div id="trophyModalIcon"></div>
+    <div id="trophyModalText"></div>
+    <div id="trophyModalDate"></div>
+    <button id="trophyModalClose">Close</button>
+  </div>
+
+  <!-- ═══ Tab Bar ═══ -->
+  <div id="tabBar" class="hidden">
+    <button class="tab-btn active" data-tab="sky">
+      <span class="tab-icon">&#x2B50;</span>
+      <span>Sky</span>
+    </button>
+    <button class="tab-btn" data-tab="collection">
+      <span class="tab-icon">&#x1F3C6;</span>
+      <span>Collection</span>
+    </button>
+  </div>
+
+  <script src="messages.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
