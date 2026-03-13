@@ -1,14 +1,15 @@
 // ─── State ───
 let soundEnabled = true;
 let audioCtx = null;
-let ambientOsc = null;
-let ambientGain = null;
-let ambientLfo = null;
+let ambientNodes = [];  // all ambient audio nodes for cleanup
+let ambientMasterGain = null;
 let currentMessage = null;
 let collectedCount = 0;
 let collectedFragments = [];
 let activeTab = "sky";
 let shootingStarTimer = null;
+let currentScene = null;
+const SCENES = ["mountain", "beach", "campfire"];
 
 // ─── DOM Refs ───
 const $ = (id) => document.getElementById(id);
@@ -90,38 +91,43 @@ function initStarfield() {
 
   const w = window.innerWidth;
   const h = window.innerHeight;
+  const cx = w / 2;
+  const cy = h * 0.35; // rotation center — upper portion of sky
 
-  // Generate ~600 background stars
+  // Generate ~600 background stars stored as angle+radius from center
   bgStars = [];
   for (let i = 0; i < 600; i++) {
     const color = pickStarColor();
-    // More stars near center/milky way band
-    let x = Math.random() * w;
-    let y = Math.random() * h;
+    const x = Math.random() * w;
+    const y = Math.random() * h;
 
-    // Brightness: most are dim, few are bright
+    // Store polar coords relative to rotation center
+    const dx = x - cx;
+    const dy = y - cy;
+    const angle = Math.atan2(dy, dx);
+    const radius = Math.sqrt(dx * dx + dy * dy);
+
+    // Brightness distribution
     const brightRoll = Math.random();
     let brightness, size;
     if (brightRoll < 0.6) {
-      brightness = 0.15 + Math.random() * 0.25; // dim
+      brightness = 0.15 + Math.random() * 0.25;
       size = 0.3 + Math.random() * 0.5;
     } else if (brightRoll < 0.9) {
-      brightness = 0.4 + Math.random() * 0.35; // medium
+      brightness = 0.4 + Math.random() * 0.35;
       size = 0.6 + Math.random() * 0.8;
     } else {
-      brightness = 0.75 + Math.random() * 0.25; // bright
+      brightness = 0.75 + Math.random() * 0.25;
       size = 1.0 + Math.random() * 1.2;
     }
 
     bgStars.push({
-      x, y, size, brightness,
+      angle, radius, size, brightness,
       baseBrightness: brightness,
       color,
-      // Twinkle parameters — each star gets unique frequency + phase
-      twinkleSpeed: 0.5 + Math.random() * 2.5,  // cycles per second
+      twinkleSpeed: 0.5 + Math.random() * 2.5,
       twinklePhase: Math.random() * Math.PI * 2,
-      twinkleAmount: 0.1 + Math.random() * 0.4,  // how much it varies
-      // Atmospheric scintillation — rapid flicker
+      twinkleAmount: 0.1 + Math.random() * 0.4,
       scintSpeed: 3 + Math.random() * 8,
       scintPhase: Math.random() * Math.PI * 2,
       scintAmount: 0.02 + Math.random() * 0.08,
@@ -132,29 +138,41 @@ function initStarfield() {
 }
 
 function startTwinkleLoop() {
-  let lastTime = 0;
+  const rotationSpeed = 0.0003; // radians per second — very slow celestial rotation
   function animate(timestamp) {
-    const t = timestamp / 1000; // seconds
+    const t = timestamp / 1000;
     const ctx = starfieldCtx;
     const w = window.innerWidth;
     const h = window.innerHeight;
+    const cx = w / 2;
+    const cy = h * 0.35;
     ctx.clearRect(0, 0, w, h);
 
+    const rotation = t * rotationSpeed;
+
     for (const s of bgStars) {
+      // Rotate star position
+      const a = s.angle + rotation;
+      const sx = cx + Math.cos(a) * s.radius;
+      const sy = cy + Math.sin(a) * s.radius;
+
+      // Skip stars off-screen (with margin)
+      if (sx < -10 || sx > w + 10 || sy < -10 || sy > h + 10) continue;
+
       // Smooth twinkle + rapid scintillation
       const twinkle = Math.sin(t * s.twinkleSpeed + s.twinklePhase) * s.twinkleAmount;
       const scint = Math.sin(t * s.scintSpeed + s.scintPhase) * s.scintAmount;
       const alpha = Math.max(0.05, Math.min(1, s.baseBrightness + twinkle + scint));
 
       ctx.beginPath();
-      ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+      ctx.arc(sx, sy, s.size, 0, Math.PI * 2);
       ctx.fillStyle = `rgba(${s.color.r}, ${s.color.g}, ${s.color.b}, ${alpha})`;
       ctx.fill();
 
       // Glow halo for brighter stars
       if (s.baseBrightness > 0.5) {
         ctx.beginPath();
-        ctx.arc(s.x, s.y, s.size * 3, 0, Math.PI * 2);
+        ctx.arc(sx, sy, s.size * 3, 0, Math.PI * 2);
         ctx.fillStyle = `rgba(${s.color.r}, ${s.color.g}, ${s.color.b}, ${alpha * 0.08})`;
         ctx.fill();
       }
@@ -282,35 +300,428 @@ function ensureAudio() {
   if (audioCtx.state === "suspended") audioCtx.resume();
 }
 
-function startAmbient() {
-  if (!audioCtx || ambientOsc) return;
-  // Sine drone at 80Hz, barely audible
-  ambientOsc = audioCtx.createOscillator();
-  ambientOsc.type = "sine";
-  ambientOsc.frequency.value = 80;
+// ─── Scene System ───
+function pickScene() {
+  return SCENES[Math.floor(Math.random() * SCENES.length)];
+}
 
-  ambientGain = audioCtx.createGain();
-  ambientGain.gain.value = soundEnabled ? 0.03 : 0;
+function applyScene(scene) {
+  currentScene = scene;
+  renderSceneSilhouette(scene);
+  stopAmbient();
+  startAmbient(scene);
 
-  const filter = audioCtx.createBiquadFilter();
-  filter.type = "lowpass";
-  filter.frequency.value = 200;
+  // Campfire glow
+  const glow = $("fireGlow");
+  if (glow) glow.style.opacity = scene === "campfire" ? "1" : "0";
+}
 
-  // Slow LFO on gain
-  ambientLfo = audioCtx.createOscillator();
-  ambientLfo.type = "sine";
-  ambientLfo.frequency.value = 0.15;
-  const lfoGain = audioCtx.createGain();
-  lfoGain.gain.value = 0.01;
-  ambientLfo.connect(lfoGain);
-  lfoGain.connect(ambientGain.gain);
+function renderSceneSilhouette(scene) {
+  const canvas = $("sceneCanvas");
+  const dpr = window.devicePixelRatio || 1;
+  const w = window.innerWidth;
+  const h = canvas.clientHeight || window.innerHeight * 0.35;
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  canvas.style.width = w + "px";
+  canvas.style.height = h + "px";
+  const ctx = canvas.getContext("2d");
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, w, h);
 
-  ambientOsc.connect(filter);
-  filter.connect(ambientGain);
-  ambientGain.connect(audioCtx.destination);
+  if (scene === "mountain") renderMountains(ctx, w, h);
+  else if (scene === "beach") renderBeach(ctx, w, h);
+  else if (scene === "campfire") renderCampfire(ctx, w, h);
 
-  ambientOsc.start();
-  ambientLfo.start();
+  canvas.style.opacity = "1";
+}
+
+function renderMountains(ctx, w, h) {
+  // Back range — darker, taller
+  ctx.fillStyle = "#0a0f25";
+  ctx.beginPath();
+  ctx.moveTo(0, h);
+  ctx.lineTo(0, h * 0.3);
+  ctx.lineTo(w * 0.08, h * 0.45);
+  ctx.lineTo(w * 0.18, h * 0.15);
+  ctx.lineTo(w * 0.28, h * 0.4);
+  ctx.lineTo(w * 0.38, h * 0.22);
+  ctx.lineTo(w * 0.5, h * 0.35);
+  ctx.lineTo(w * 0.6, h * 0.1);
+  ctx.lineTo(w * 0.72, h * 0.38);
+  ctx.lineTo(w * 0.82, h * 0.2);
+  ctx.lineTo(w * 0.92, h * 0.42);
+  ctx.lineTo(w, h * 0.28);
+  ctx.lineTo(w, h);
+  ctx.closePath();
+  ctx.fill();
+
+  // Front range — slightly lighter
+  ctx.fillStyle = "#060b1a";
+  ctx.beginPath();
+  ctx.moveTo(0, h);
+  ctx.lineTo(0, h * 0.55);
+  ctx.lineTo(w * 0.12, h * 0.4);
+  ctx.lineTo(w * 0.22, h * 0.55);
+  ctx.lineTo(w * 0.35, h * 0.35);
+  ctx.lineTo(w * 0.45, h * 0.5);
+  ctx.lineTo(w * 0.55, h * 0.42);
+  ctx.lineTo(w * 0.68, h * 0.55);
+  ctx.lineTo(w * 0.78, h * 0.38);
+  ctx.lineTo(w * 0.88, h * 0.52);
+  ctx.lineTo(w, h * 0.45);
+  ctx.lineTo(w, h);
+  ctx.closePath();
+  ctx.fill();
+
+  // Treeline at base
+  ctx.fillStyle = "#040812";
+  const treeBase = h * 0.7;
+  for (let x = 0; x < w; x += 6 + Math.random() * 8) {
+    const treeH = 8 + Math.random() * 18;
+    ctx.beginPath();
+    ctx.moveTo(x, treeBase);
+    ctx.lineTo(x + 3, treeBase - treeH);
+    ctx.lineTo(x + 6, treeBase);
+    ctx.fill();
+  }
+
+  // Ground
+  ctx.fillStyle = "#030710";
+  ctx.fillRect(0, treeBase, w, h - treeBase);
+}
+
+function renderBeach(ctx, w, h) {
+  // Ocean — dark water
+  ctx.fillStyle = "#060d20";
+  ctx.beginPath();
+  ctx.moveTo(0, h * 0.5);
+  // Gentle wave line
+  for (let x = 0; x <= w; x += 20) {
+    const waveY = h * 0.5 + Math.sin(x * 0.015) * 4 + Math.sin(x * 0.008) * 6;
+    ctx.lineTo(x, waveY);
+  }
+  ctx.lineTo(w, h);
+  ctx.lineTo(0, h);
+  ctx.closePath();
+  ctx.fill();
+
+  // Shore line — wet sand
+  ctx.fillStyle = "#0a0e1a";
+  ctx.beginPath();
+  ctx.moveTo(0, h * 0.72);
+  for (let x = 0; x <= w; x += 15) {
+    ctx.lineTo(x, h * 0.72 + Math.sin(x * 0.02) * 3);
+  }
+  ctx.lineTo(w, h);
+  ctx.lineTo(0, h);
+  ctx.closePath();
+  ctx.fill();
+
+  // Sand
+  ctx.fillStyle = "#0c1018";
+  ctx.fillRect(0, h * 0.78, w, h * 0.22);
+
+  // Palm tree (left side)
+  drawPalmTree(ctx, w * 0.12, h * 0.48, h * 0.35, -0.15);
+  // Palm tree (right side, leaning right)
+  drawPalmTree(ctx, w * 0.85, h * 0.52, h * 0.3, 0.2);
+
+  // Water shimmer — tiny reflections
+  for (let i = 0; i < 30; i++) {
+    const sx = Math.random() * w;
+    const sy = h * 0.5 + Math.random() * (h * 0.2);
+    ctx.fillStyle = `rgba(150, 180, 220, ${0.03 + Math.random() * 0.05})`;
+    ctx.fillRect(sx, sy, 8 + Math.random() * 15, 1);
+  }
+}
+
+function drawPalmTree(ctx, x, topY, trunkH, lean) {
+  // Trunk
+  ctx.strokeStyle = "#050a15";
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.moveTo(x, topY + trunkH);
+  // Curved trunk
+  ctx.quadraticCurveTo(x + lean * trunkH, topY + trunkH * 0.5, x + lean * trunkH * 0.5, topY);
+  ctx.stroke();
+
+  // Fronds
+  const tipX = x + lean * trunkH * 0.5;
+  const tipY = topY;
+  ctx.fillStyle = "#040910";
+  for (let i = 0; i < 7; i++) {
+    const angle = -Math.PI * 0.8 + (i / 6) * Math.PI * 1.6;
+    const frondLen = 25 + Math.random() * 15;
+    ctx.beginPath();
+    ctx.moveTo(tipX, tipY);
+    const endX = tipX + Math.cos(angle) * frondLen;
+    const endY = tipY + Math.sin(angle) * frondLen;
+    const cpX = tipX + Math.cos(angle) * frondLen * 0.6 + (Math.random() - 0.5) * 8;
+    const cpY = tipY + Math.sin(angle) * frondLen * 0.4;
+    ctx.quadraticCurveTo(cpX, cpY, endX, endY);
+    ctx.quadraticCurveTo(cpX + 3, cpY + 2, tipX, tipY);
+    ctx.fill();
+  }
+}
+
+function renderCampfire(ctx, w, h) {
+  // Rolling hills ground
+  ctx.fillStyle = "#060b18";
+  ctx.beginPath();
+  ctx.moveTo(0, h * 0.6);
+  for (let x = 0; x <= w; x += 30) {
+    ctx.lineTo(x, h * 0.6 + Math.sin(x * 0.008) * 12 + Math.sin(x * 0.003) * 20);
+  }
+  ctx.lineTo(w, h);
+  ctx.lineTo(0, h);
+  ctx.closePath();
+  ctx.fill();
+
+  // Flat ground
+  ctx.fillStyle = "#040810";
+  ctx.fillRect(0, h * 0.75, w, h * 0.25);
+
+  // Fire logs
+  const fireX = w / 2;
+  const fireY = h * 0.72;
+
+  ctx.strokeStyle = "#1a1208";
+  ctx.lineWidth = 4;
+  ctx.lineCap = "round";
+  // Log 1
+  ctx.beginPath();
+  ctx.moveTo(fireX - 18, fireY + 4);
+  ctx.lineTo(fireX + 14, fireY + 8);
+  ctx.stroke();
+  // Log 2
+  ctx.beginPath();
+  ctx.moveTo(fireX + 16, fireY + 2);
+  ctx.lineTo(fireX - 12, fireY + 10);
+  ctx.stroke();
+
+  // Fire glow on ground
+  const groundGlow = ctx.createRadialGradient(fireX, fireY, 0, fireX, fireY, 50);
+  groundGlow.addColorStop(0, "rgba(255, 100, 20, 0.06)");
+  groundGlow.addColorStop(1, "transparent");
+  ctx.fillStyle = groundGlow;
+  ctx.fillRect(fireX - 60, fireY - 20, 120, 40);
+
+  // Flame shapes (static silhouette — animation is via fireGlow CSS)
+  const flames = [
+    { dx: 0, h: 22, w: 6 },
+    { dx: -5, h: 16, w: 5 },
+    { dx: 6, h: 18, w: 5 },
+    { dx: -2, h: 12, w: 4 },
+    { dx: 4, h: 14, w: 4 },
+  ];
+  flames.forEach(f => {
+    const fx = fireX + f.dx;
+    const fy = fireY;
+    const grad = ctx.createLinearGradient(fx, fy, fx, fy - f.h);
+    grad.addColorStop(0, "rgba(255, 140, 30, 0.15)");
+    grad.addColorStop(0.5, "rgba(255, 80, 10, 0.1)");
+    grad.addColorStop(1, "rgba(255, 50, 0, 0)");
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.moveTo(fx - f.w / 2, fy);
+    ctx.quadraticCurveTo(fx - f.w / 3, fy - f.h * 0.7, fx, fy - f.h);
+    ctx.quadraticCurveTo(fx + f.w / 3, fy - f.h * 0.7, fx + f.w / 2, fy);
+    ctx.fill();
+  });
+
+  // Scattered rocks
+  ctx.fillStyle = "#080d18";
+  [[fireX - 25, fireY + 6, 5, 3], [fireX + 22, fireY + 5, 4, 3],
+   [fireX - 30, fireY + 10, 6, 3], [fireX + 28, fireY + 9, 5, 3]].forEach(([rx, ry, rw, rh]) => {
+    ctx.beginPath();
+    ctx.ellipse(rx, ry, rw, rh, 0, 0, Math.PI * 2);
+    ctx.fill();
+  });
+}
+
+// ─── Cozy Ambient Sounds ───
+function stopAmbient() {
+  ambientNodes.forEach(node => {
+    try { node.stop(); } catch {}
+    try { node.disconnect(); } catch {}
+  });
+  ambientNodes = [];
+  ambientMasterGain = null;
+}
+
+function startAmbient(scene) {
+  if (!audioCtx) return;
+
+  ambientMasterGain = audioCtx.createGain();
+  ambientMasterGain.gain.value = soundEnabled ? 1 : 0;
+  ambientMasterGain.connect(audioCtx.destination);
+
+  if (scene === "beach") startOceanWaves();
+  else if (scene === "campfire") startFireCrackling();
+  else if (scene === "mountain") startMountainWind();
+}
+
+function createNoiseSource() {
+  // White noise buffer
+  const bufferSize = audioCtx.sampleRate * 2;
+  const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = Math.random() * 2 - 1;
+  }
+  const source = audioCtx.createBufferSource();
+  source.buffer = buffer;
+  source.loop = true;
+  return source;
+}
+
+function startOceanWaves() {
+  // Layer 1: deep rumble
+  const noise1 = createNoiseSource();
+  const lp1 = audioCtx.createBiquadFilter();
+  lp1.type = "lowpass";
+  lp1.frequency.value = 180;
+  const g1 = audioCtx.createGain();
+  g1.gain.value = 0.06;
+
+  // Slow volume swell for wave rhythm
+  const lfo1 = audioCtx.createOscillator();
+  lfo1.type = "sine";
+  lfo1.frequency.value = 0.08; // ~12s cycle
+  const lfoGain1 = audioCtx.createGain();
+  lfoGain1.gain.value = 0.03;
+  lfo1.connect(lfoGain1);
+  lfoGain1.connect(g1.gain);
+
+  noise1.connect(lp1).connect(g1).connect(ambientMasterGain);
+  noise1.start();
+  lfo1.start();
+  ambientNodes.push(noise1, lfo1);
+
+  // Layer 2: higher hiss (foam/wash)
+  const noise2 = createNoiseSource();
+  const bp2 = audioCtx.createBiquadFilter();
+  bp2.type = "bandpass";
+  bp2.frequency.value = 800;
+  bp2.Q.value = 0.5;
+  const g2 = audioCtx.createGain();
+  g2.gain.value = 0.015;
+
+  const lfo2 = audioCtx.createOscillator();
+  lfo2.type = "sine";
+  lfo2.frequency.value = 0.12;
+  const lfoGain2 = audioCtx.createGain();
+  lfoGain2.gain.value = 0.01;
+  lfo2.connect(lfoGain2);
+  lfoGain2.connect(g2.gain);
+
+  noise2.connect(bp2).connect(g2).connect(ambientMasterGain);
+  noise2.start();
+  lfo2.start();
+  ambientNodes.push(noise2, lfo2);
+}
+
+function startFireCrackling() {
+  // Base roar — low filtered noise
+  const noise = createNoiseSource();
+  const lp = audioCtx.createBiquadFilter();
+  lp.type = "lowpass";
+  lp.frequency.value = 300;
+  const g = audioCtx.createGain();
+  g.gain.value = 0.04;
+
+  // Gentle flicker
+  const lfo = audioCtx.createOscillator();
+  lfo.type = "sine";
+  lfo.frequency.value = 3;
+  const lfoG = audioCtx.createGain();
+  lfoG.gain.value = 0.015;
+  lfo.connect(lfoG);
+  lfoG.connect(g.gain);
+
+  noise.connect(lp).connect(g).connect(ambientMasterGain);
+  noise.start();
+  lfo.start();
+  ambientNodes.push(noise, lfo);
+
+  // Crackle pops — periodic random clicks
+  function scheduleCrackle() {
+    if (!ambientMasterGain) return;
+    const now = audioCtx.currentTime;
+    const popCount = 1 + Math.floor(Math.random() * 3);
+
+    for (let i = 0; i < popCount; i++) {
+      const t = now + Math.random() * 0.15;
+      const osc = audioCtx.createOscillator();
+      const popGain = audioCtx.createGain();
+      osc.type = "square";
+      osc.frequency.value = 800 + Math.random() * 2000;
+      popGain.gain.setValueAtTime(0.02 + Math.random() * 0.03, t);
+      popGain.gain.exponentialRampToValueAtTime(0.001, t + 0.02 + Math.random() * 0.03);
+      osc.connect(popGain).connect(ambientMasterGain);
+      osc.start(t);
+      osc.stop(t + 0.05);
+    }
+
+    const nextDelay = 200 + Math.random() * 600;
+    setTimeout(scheduleCrackle, nextDelay);
+  }
+  scheduleCrackle();
+}
+
+function startMountainWind() {
+  // Soft wind — filtered noise with slow modulation
+  const noise = createNoiseSource();
+  const bp = audioCtx.createBiquadFilter();
+  bp.type = "bandpass";
+  bp.frequency.value = 400;
+  bp.Q.value = 0.3;
+  const g = audioCtx.createGain();
+  g.gain.value = 0.035;
+
+  // Wind gusts — slow LFO
+  const lfo = audioCtx.createOscillator();
+  lfo.type = "sine";
+  lfo.frequency.value = 0.06; // very slow
+  const lfoG = audioCtx.createGain();
+  lfoG.gain.value = 0.02;
+  lfo.connect(lfoG);
+  lfoG.connect(g.gain);
+
+  // Second LFO modulating filter frequency (wind pitch shift)
+  const lfo2 = audioCtx.createOscillator();
+  lfo2.type = "sine";
+  lfo2.frequency.value = 0.04;
+  const lfoG2 = audioCtx.createGain();
+  lfoG2.gain.value = 150;
+  lfo2.connect(lfoG2);
+  lfoG2.connect(bp.frequency);
+
+  noise.connect(bp).connect(g).connect(ambientMasterGain);
+  noise.start();
+  lfo.start();
+  lfo2.start();
+  ambientNodes.push(noise, lfo, lfo2);
+
+  // Occasional distant owl-like tone
+  function scheduleOwl() {
+    if (!ambientMasterGain) return;
+    const now = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const owlG = audioCtx.createGain();
+    osc.type = "sine";
+    osc.frequency.value = 380 + Math.random() * 40;
+    owlG.gain.setValueAtTime(0, now);
+    owlG.gain.linearRampToValueAtTime(0.015, now + 0.3);
+    owlG.gain.linearRampToValueAtTime(0, now + 0.8);
+    osc.connect(owlG).connect(ambientMasterGain);
+    osc.start(now);
+    osc.stop(now + 0.8);
+
+    setTimeout(scheduleOwl, 12000 + Math.random() * 20000);
+  }
+  setTimeout(scheduleOwl, 5000 + Math.random() * 10000);
 }
 
 function playChime() {
@@ -526,7 +937,6 @@ function onStarTap(starBtn, index) {
   if (starBtn.classList.contains("collected") || collectedCount >= 5) return;
 
   ensureAudio();
-  startAmbient();
   playChime();
 
   starBtn.classList.add("collected");
@@ -764,8 +1174,9 @@ function startNewRound() {
   $("starCounter").textContent = "0 / 5 stars collected";
   $("starCounter").classList.remove("hidden");
 
-  // Generate new stars
+  // Generate new stars + new scene
   generateTappableStars(20);
+  applyScene(pickScene());
 
   // Show sky + tab bar
   activeTab = "sky";
@@ -886,8 +1297,8 @@ document.addEventListener("DOMContentLoaded", () => {
   $("soundToggle").addEventListener("click", () => {
     soundEnabled = !soundEnabled;
     $("soundToggle").textContent = soundEnabled ? "\uD83D\uDD0A" : "\uD83D\uDD07";
-    if (ambientGain) {
-      ambientGain.gain.value = soundEnabled ? 0.03 : 0;
+    if (ambientMasterGain) {
+      ambientMasterGain.gain.value = soundEnabled ? 1 : 0;
     }
   });
 
@@ -910,7 +1321,6 @@ document.addEventListener("DOMContentLoaded", () => {
     // Show welcome screen
     $("beginBtn").addEventListener("click", () => {
       ensureAudio();
-      startAmbient();
       playChime();
       markVisited();
 
@@ -923,6 +1333,7 @@ document.addEventListener("DOMContentLoaded", () => {
       generateTappableStars(20);
       $("starCounter").textContent = "0 / 5 stars collected";
 
+      applyScene(pickScene());
       showScreen("skyScreen");
       $("tabBar").classList.remove("hidden");
       $("moon").classList.remove("hidden");
@@ -934,6 +1345,7 @@ document.addEventListener("DOMContentLoaded", () => {
     generateTappableStars(20);
     updateBigHeart(collectedCount);
     $("starCounter").textContent = `${collectedCount} / 5 stars collected`;
+    applyScene(pickScene());
     showScreen("skyScreen");
     $("tabBar").classList.remove("hidden");
     $("moon").classList.remove("hidden");
@@ -943,7 +1355,6 @@ document.addEventListener("DOMContentLoaded", () => {
     $("beginBtn").textContent = "Pick Stars";
     $("beginBtn").addEventListener("click", () => {
       ensureAudio();
-      startAmbient();
       playChime();
 
       currentMessage = pickMessage();
@@ -954,6 +1365,7 @@ document.addEventListener("DOMContentLoaded", () => {
       generateTappableStars(20);
       $("starCounter").textContent = "0 / 5 stars collected";
 
+      applyScene(pickScene());
       showScreen("skyScreen");
       $("tabBar").classList.remove("hidden");
       $("moon").classList.remove("hidden");

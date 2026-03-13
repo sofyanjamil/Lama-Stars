@@ -74,6 +74,37 @@
       );
     }
 
+    /* ─── Scene Silhouette ─── */
+    #sceneCanvas {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 35%;
+      z-index: 2;
+      pointer-events: none;
+      transition: opacity 1.5s ease;
+    }
+
+    /* ─── Campfire glow overlay ─── */
+    #fireGlow {
+      position: fixed;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 300px;
+      height: 200px;
+      z-index: 2;
+      pointer-events: none;
+      background: radial-gradient(ellipse at 50% 100%,
+        rgba(255, 120, 20, 0.08) 0%,
+        rgba(255, 80, 10, 0.04) 40%,
+        transparent 70%
+      );
+      opacity: 0;
+      transition: opacity 1.5s ease;
+    }
+
     /* ─── Screens ─── */
     .screen {
       position: fixed;
@@ -597,6 +628,12 @@
 
   <!-- Horizon Haze -->
   <div id="horizonHaze"></div>
+
+  <!-- Scene Silhouette -->
+  <canvas id="sceneCanvas"></canvas>
+
+  <!-- Campfire glow -->
+  <div id="fireGlow"></div>
 
   <!-- Sound Toggle -->
   <button id="soundToggle" class="sound-btn" aria-label="Toggle sound">&#x1F50A;</button>
