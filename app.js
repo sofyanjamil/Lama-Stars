@@ -1442,14 +1442,25 @@ document.addEventListener("DOMContentLoaded", () => {
   } else if (savedRound && resumeRound(savedRound)) {
     // Resume mid-round
     $("welcomeScreen").classList.add("hidden");
-    generateTappableStars(20);
-    updateBigHeart(collectedCount);
-    $("starCounter").textContent = `${collectedCount} / 5 stars collected`;
-    applyScene(pickScene());
-    showScreen("skyScreen");
-    $("tabBar").classList.remove("hidden");
-    $("moon").classList.remove("hidden");
-    startShootingStars();
+    if (collectedCount >= 5) {
+      // Heart was full — go straight to reveal
+      saveCurrentRound(null);
+      applyScene(pickScene());
+      showScreen("skyScreen");
+      $("tabBar").classList.remove("hidden");
+      $("moon").classList.remove("hidden");
+      startShootingStars();
+      setTimeout(() => triggerHeartExplosion(), 600);
+    } else {
+      generateTappableStars(20);
+      updateBigHeart(collectedCount);
+      $("starCounter").textContent = `${collectedCount} / 5 stars collected`;
+      applyScene(pickScene());
+      showScreen("skyScreen");
+      $("tabBar").classList.remove("hidden");
+      $("moon").classList.remove("hidden");
+      startShootingStars();
+    }
   } else {
     // Returning user, no active round — start fresh
     $("beginBtn").textContent = "Pick Stars";
