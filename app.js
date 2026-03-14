@@ -1146,7 +1146,7 @@ function triggerHeartExplosion() {
   heartWrap.style.animation = "heartExplode 0.8s ease-out forwards";
 
   // Spawn particles — hearts and stars only
-  const symbols = ["\u2764\uFE0F", "\uD83D\uDC96", "\u2B50", "\uD83C\uDF1F", "\u2764\uFE0F", "\uD83D\uDC97", "\u2B50", "\uD83D\uDC95"];
+  const symbols = ["\u2764\uFE0F", "\uD83D\uDC96", "\u2B50", "\u2B50", "\u2764\uFE0F", "\uD83D\uDC97", "\u2B50", "\uD83D\uDC95"];
   for (let i = 0; i < 20; i++) {
     const p = document.createElement("div");
     p.className = "explosion-particle";
