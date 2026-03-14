@@ -1314,12 +1314,7 @@ function renderTrophyShelf() {
     iconSpan.className = "trophy-icon";
     iconSpan.textContent = t.icon;
 
-    const dateSpan = document.createElement("span");
-    dateSpan.className = "trophy-date";
-    dateSpan.textContent = t.date;
-
     cell.appendChild(iconSpan);
-    cell.appendChild(dateSpan);
     cell.addEventListener("click", () => showTrophyModal(t));
     grid.appendChild(cell);
   });
@@ -1332,7 +1327,6 @@ function showTrophyModal(trophy) {
   textEl.dir = trophy.lang === "ar" ? "rtl" : "ltr";
   if (trophy.lang === "ar") textEl.classList.add("font-arabic");
   else textEl.classList.remove("font-arabic");
-  $("trophyModalDate").textContent = trophy.date;
   $("trophyModal").classList.remove("hidden");
 }
 
